@@ -35,7 +35,7 @@ small subset of Q-matrix values to the screen to observe convergence.
 ### Choosing actions to maximize reward
 
 - Implementation: Given the state of the world, the Q-matrix will show which
-actions are feasible, and which have the highest expected future reward.  We can
+actions are feasible, and which have the highest expected future reward. We can
 simply select the one action of highest future reward, or randomly select actions
 proportional to their expected future reward. If there are actions of equal future
 reward, we can randomly select from among them.
@@ -46,29 +46,27 @@ node is created, we can test with the turtlebot.
 
 ## Robot perception
 
-### Identifying the colored dumbbells
+### Identifying and locating the colored dumbbells
 
-- Implementation: We can move the pose of the robot to various positions and
-detect the presence of a dumbbell using the given function. Using the color sensor
-we can inspect the color returned and compare the colors to the color map for the
-appropriate values for red, green and blue dumbbells.
+- Implementation: We can use the color image sensor to detect the direction in
+which a given dumbbell lies relative to the robot (the color values should stand
+out against those of the world background and the blocks). Then, we can inspect
+the values of those contrasting color measurements to determine the identity of
+the dumbbell in view.
 
-- Testing: We can use Gazebo to place the robot in front of specific dumbbells of
-specific colors and verify that the proper color is returned. For determining the
-location of the dumbbells, exhaustive search would be one method for finding them.
-We can use a known field setup in Gazebo to verify that our location and color
-identification functions work.
+- Testing: We can use Gazebo to place the robot near specific dumbbells and verify
+that the correct direction and color are determined from the image sensor
+measurements.
 
-### Identifying the numbered blocks
+### Identifying and locating the numbered blocks
 
-- Implementation: We can determine the locations of the blocks through a similar
-method to determining the location of the dumbbells, that is searching each position
-in the grid. Once in front of a block, we can use a python package for digit
-recognition to determine which block is in place.
+- Implementation: We can use a similar technique to that described above for
+the dumbbells, though instead of image sensor measurements, we will instead use
+an opencv2 classifier (as demonstrated in the class 11 lecture notes) for detecting
+the numbers on the blocks.
 
-- Testing: We will import a digit recognition package from python from one of the
-available packages, and test it on the sample blocks provided in Gazebo, assuming
-that one isn’t provided in the class repository.
+- Testing: As was true of the implementation, testing should also be similar to
+that described for identifying and locating the dumbbells.
 
 ## Robot manipulation and movement
 
@@ -91,24 +89,28 @@ tracking algorithm to position the robot in place so that it can grab the dumbbe
 
 ### Navigating to where the robot will handle the dumbbells
 
-- Implementation: We can use the laser scanner and color scanner to determine the
-location of the dumbbells in the world, and either determine the color of the
+- Implementation: We can use the laser scanner and color image sensor to determine
+the location of the dumbbells in the world, and either determine the color of the
 dumbbell at a distance (we can test this) or move to that location and use the
 color sensor to determine which dumbbell is at that location. Once the dumbbell
-locations are known, we can use the Q matrix to determine where to place them
+locations are known, we can use the Q-matrix to determine where to place them
 using the manipulator functions from above.
 
-- Testing: Testing plan: Using our movement framework, instruct the robot to
-navigate to a specific dumbbell or block, and visually inspect the results. It
-should be clear if something is amiss (e.g. navigating to an incorrect target,
-missing the target entirely, colliding with the target, etc).
+- Testing: Using our movement framework, instruct the robot to navigate to a
+specific dumbbell or block, and visually inspect the results. It should be clear
+if something is amiss (e.g. navigating to an incorrect target, missing the target
+entirely, colliding with the target, etc).
 
 # Timeline of milestones
 
-We plan to execute the q learning algorithm, determine when the q matrix has
-converged, and determine which actions the robot should take to maximize expected
-reward by February 20. We plan to determine the identities and locations of the
-three colored dumbbells and determine the identities and locations of the three
-numbered blocks by February 24. We plan to pick up and put down the dumbbells
-with the OpenManipulator arm and navigate to the appropriate locations to pick
-up and put down the dumb bells by February 28.
+### Saturday, February 20th
+- Q-learning algorithm
+
+### Wednesday, February 24th
+- Robot perception
+
+### Saturday, February 27th
+- Robot manipulation and movement
+
+### Sunday, February 28th
+- Writeup, recording, rosbag, and partner survey
