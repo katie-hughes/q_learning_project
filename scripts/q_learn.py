@@ -78,7 +78,7 @@ def valid_state(r, g, b):
     n1 = colors.count(1)
     n2 = colors.count(2)
     n3 = colors.count(3)
-    if n1>1 or n2>2 or n3>3:
+    if n1>1 or n2>1 or n3>1:
         return False
     else:
         return True
@@ -163,7 +163,7 @@ class QLearn(object):
         #print(self.actions)
 
     def fill_qmatrix(self):
-        threshold = 20
+        threshold = 200
         alpha = 1
         gamma = 0.5
         s = 0
@@ -185,6 +185,7 @@ class QLearn(object):
             new_state = apply_action(s, a)
             #once I am in new_state, what is the max there?
             mx = np.amax(self.q[new_state])
+            print("REWARD:", self.reward)
             update = self.q[s][a] + alpha*(self.reward + gamma*mx - self.q[s][a])
             if self.q[s][a] != update:
                 print('updating')
@@ -202,6 +203,7 @@ class QLearn(object):
                 s = 0
             else:
                 s = new_state
+        print(self.q)
 
 
 
