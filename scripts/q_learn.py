@@ -13,10 +13,6 @@ import random
 np.set_printoptions(threshold=np.inf)
 
 
-
-
-
-
 class QLearn(object):
     def __init__(self):
         rospy.init_node('q_learning_algorithm')
@@ -35,6 +31,7 @@ class QLearn(object):
         matrix.header = Header(stamp=rospy.Time.now())
         matrix.q_matrix = self.q
         self.matrix_pub.publish(matrix)
+        # initialize these values to help later with determining convergence
         self.count=0
         self.reward=0
         print("Q Matrix Initialized")
@@ -126,11 +123,12 @@ class QLearn(object):
         print(self.q)
 
     def action_reward(self, data):
+        """ Callback to receive the reward from robot movement """
         print("action reward:", data.reward)
         self.reward = data.reward
 
     def find_state(self, red, green, blue):
-        """ Simple way to assign all 64 states to a number.
+        """ Simple way to assign all 64 states to a unique number.
             Assumes a dumbbell at the origin is assigned 0
             and a dumbbell at a block is assigned the block's number.
         """
@@ -138,8 +136,7 @@ class QLearn(object):
         return state
 
     def locations_from_state(self, state):
-        """ Inverse of the 'find state' function
-        """
+        """ Inverse of the 'find state' function """
         blue = state // 16
         green = (state - 16*blue) // 4
         red = state - 16*blue - 4*green
@@ -157,20 +154,18 @@ class QLearn(object):
                     print("red:", red, "green:", green, "blue:", blue, "\n")
 
     def find_action(self, color, block):
-        """ Assumes red=0, green=1, blue=2
-            and the block's id is equal to its number
-        """
+        """ Assumes red=0, green=1, blue=2, block = its number """
         action = color*3+(block-1)
         return action
 
     def inverse_action(self, action):
-        """ Returns the color and block location from an action
-        """
+        """ Returns the color and block location from an action"""
         color = action // 3
         block = action-color*3 + 1
         return color, block
 
     def dumbbell_color(self, color):
+        """ Mapping b/w dumbbells numbers and colors """
         if color == 0:
             return "red"
         elif color == 1:
@@ -191,8 +186,8 @@ class QLearn(object):
                 print('Inverting: moving', self.dumbbell_color(c), "to", b, '\n')
 
     def valid_state(self, r, g, b):
+        """ Given dumbbell locations, is this state allowed? """
         colors = [r, g, b]
-        # count the number of dbs at each block
         n1 = colors.count(1)
         n2 = colors.count(2)
         n3 = colors.count(3)
@@ -202,6 +197,7 @@ class QLearn(object):
             return True
 
     def apply_action(self, state, action):
+        """ Given a state and an action, return the next state"""
         r, g, b = self.locations_from_state(state)
         color, block = self.inverse_action(action)
         if color==0:
@@ -216,7 +212,7 @@ class QLearn(object):
         return new_state
 
     def end_state(self, state):
-        # Check's if state has no more valid moves
+        """ Given a state, are there no more legal moves? """
         red, green, blue = self.locations_from_state(state)
         if red != 0 and green != 0 and blue != 0:
             return True
