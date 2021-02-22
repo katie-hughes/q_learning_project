@@ -12,98 +12,10 @@ import numpy as np
 import random
 np.set_printoptions(threshold=np.inf)
 
-def find_state(red, green, blue):
-    """ Simple way to assign all 64 states to a number.
-        Assumes a dumbbell at the origin is assigned 0
-        and a dumbbell at a block is assigned the block's number.
-    """
-    state = 1*red + 4*green + 16*blue
-    return state
-
-def locations_from_state(state):
-    """ Inverse of the 'find state' function
-    """
-    blue = state // 16
-    green = (state - 16*blue) // 4
-    red = state - 16*blue - 4*green
-    return red, green, blue
-
-def test_state():
-    for b in range(0, 4):
-        for g in range(0, 4):
-            for r in range(0, 4):
-                print("red:", r, "green:", g, "blue:", b, end='\t')
-                num = find_state(r,g,b)
-                print("State num:", num)
-                red, green, blue = locations_from_state(num)
-                print("red:", red, "green:", green, "blue:", blue, "\n")
 
 
-def find_action(color, block):
-    """ Assumes red=0, green=1, blue=2
-        and the block is equal to its number
-    """
-    action = color*3+(block-1)
-    return action
 
-def inverse_action(action):
-    """ Returns the color and block location from an action
-    """
-    color = action // 3
-    block = action-color*3 + 1
-    return color, block
 
-def dumbbell_color(color):
-    if color == 0:
-        return "red"
-    elif color == 1:
-        return "green"
-    elif color == 2:
-        return "blue"
-    else:
-        return "UNKNOWN COLOR??"
-
-def test_action():
-    for color in range(0, 3):
-        for block in range(1, 4):
-            print("Moving the", dumbbell_color(color), "to block", block)
-            action = find_action(color, block)
-            print('Action number', action)
-            c, b = inverse_action(action)
-            print('Inverting: moving', dumbbell_color(c), "to", b, '\n')
-
-def valid_state(r, g, b):
-    colors = [r, g, b]
-    # count the number of dbs at each block
-    n1 = colors.count(1)
-    n2 = colors.count(2)
-    n3 = colors.count(3)
-    if n1>1 or n2>1 or n3>1:
-        return False
-    else:
-        return True
-
-def apply_action(state, action):
-    r, g, b = locations_from_state(state)
-    color, block = inverse_action(action)
-    if color==0:
-        r = block
-    elif color==1:
-        g = block
-    elif color==2:
-        b = block
-    else:
-        print("WHATT???")
-    new_state = find_state(r, g, b)
-    return new_state
-
-#checks if this state is at the end
-def end_state(state):
-    red, green, blue = locations_from_state(state)
-    if red != 0 and green != 0 and blue != 0:
-        return True
-    else:
-        return False
 
 class QLearn(object):
     def __init__(self):
@@ -135,9 +47,9 @@ class QLearn(object):
                     # you cannot transition into the same state
                     self.actions[si][sf] = -1
                     continue
-                ri, gi, bi = locations_from_state(si)
+                ri, gi, bi = self.locations_from_state(si)
                 initial = np.array([ri, gi, bi])
-                rf, gf, bf = locations_from_state(sf)
+                rf, gf, bf = self.locations_from_state(sf)
                 final = np.array([rf, gf, bf])
                 diff = final - initial
                 if np.count_nonzero(diff) > 1:
@@ -148,41 +60,47 @@ class QLearn(object):
                     #A dumbbell got moved to the origin
                     self.actions[si][sf] = -1
                     continue
-                if not (valid_state(rf, gf, bf)):
+                if not (self.valid_state(rf, gf, bf)):
                     #Can't transition to an invalid state
                     self.actions[si][sf] = -1
                     continue
                 moved_dumbbell = np.nonzero(diff)[0][0] # the nonzero index of diff
                 source = initial[moved_dumbbell]
                 destination = final[moved_dumbbell]
-                required_action = find_action(moved_dumbbell, destination)
+                if source != 0:
+                    # moving between blocks is not allowed
+                    self.actions[si][sf] = -1
+                    continue
+                #print("Start: ", ri, gi, bi, "finish:", rf, gf, bf)
+                required_action = self.find_action(moved_dumbbell, destination)
                 self.actions[si][sf] = required_action
         print("Action Matrix Initialized")
-        #test_state()
-        #test_action()
+        #self.test_state()
+        #self.test_action()
         #print(self.actions)
 
     def fill_qmatrix(self):
-        threshold = 200
+        threshold = 50
         alpha = 1
         gamma = 0.5
         s = 0
         while self.count<threshold:
             print(self.count)
-            print('state:', s)
+            #print('state:', s)
             # selecting an action at random:
             all_actions = self.actions[s]
             possible_actions = all_actions[all_actions>=0]
             a = random.choice(possible_actions)
-            print('selected action:', a)
-            color, block = inverse_action(a)
-            print("Move", dumbbell_color(color), "to", block)
+            #print('selected action:', a)
+            color, block = self.inverse_action(a)
+            #print("Move", self.dumbbell_color(color), "to", block)
             move = RobotMoveDBToBlock()
-            move.robot_db = dumbbell_color(color)
+            move.robot_db = self.dumbbell_color(color)
             move.block_id = block
             self.move_pub.publish(move)
+            rospy.sleep(1.0)
             # I receive reward in self.reward automatically via callback
-            new_state = apply_action(s, a)
+            new_state = self.apply_action(s, a)
             #once I am in new_state, what is the max there?
             mx = np.amax(self.q[new_state])
             print("REWARD:", self.reward)
@@ -194,23 +112,116 @@ class QLearn(object):
                 matrix.header = Header(stamp=rospy.Time.now())
                 matrix.q_matrix = self.q
                 self.matrix_pub.publish(matrix)
+                self.count = 0
+                print(self.q)
             else:
                 print('no update')
                 self.count += 1
             # need to check if the new state is at the end
-            if end_state(new_state):
+            if self.end_state(new_state):
                 print('nowhere else to go')
                 s = 0
             else:
                 s = new_state
         print(self.q)
 
-
-
-
     def action_reward(self, data):
         print("action reward:", data.reward)
         self.reward = data.reward
+
+    def find_state(self, red, green, blue):
+        """ Simple way to assign all 64 states to a number.
+            Assumes a dumbbell at the origin is assigned 0
+            and a dumbbell at a block is assigned the block's number.
+        """
+        state = 1*red + 4*green + 16*blue
+        return state
+
+    def locations_from_state(self, state):
+        """ Inverse of the 'find state' function
+        """
+        blue = state // 16
+        green = (state - 16*blue) // 4
+        red = state - 16*blue - 4*green
+        return red, green, blue
+
+    def test_state(self):
+        """ Helper function to test state functions"""
+        for b in range(0, 4):
+            for g in range(0, 4):
+                for r in range(0, 4):
+                    print("red:", r, "green:", g, "blue:", b, end='\t')
+                    num = self.find_state(r,g,b)
+                    print("State num:", num)
+                    red, green, blue = self.locations_from_state(num)
+                    print("red:", red, "green:", green, "blue:", blue, "\n")
+
+    def find_action(self, color, block):
+        """ Assumes red=0, green=1, blue=2
+            and the block's id is equal to its number
+        """
+        action = color*3+(block-1)
+        return action
+
+    def inverse_action(self, action):
+        """ Returns the color and block location from an action
+        """
+        color = action // 3
+        block = action-color*3 + 1
+        return color, block
+
+    def dumbbell_color(self, color):
+        if color == 0:
+            return "red"
+        elif color == 1:
+            return "green"
+        elif color == 2:
+            return "blue"
+        else:
+            return "UNKNOWN COLOR??"
+
+    def test_action(self):
+        """ Helper to test the action functions """
+        for color in range(0, 3):
+            for block in range(1, 4):
+                print("Moving the", self.dumbbell_color(color), "to block", block)
+                action = self.find_action(color, block)
+                print('Action number', action)
+                c, b = self.inverse_action(action)
+                print('Inverting: moving', self.dumbbell_color(c), "to", b, '\n')
+
+    def valid_state(self, r, g, b):
+        colors = [r, g, b]
+        # count the number of dbs at each block
+        n1 = colors.count(1)
+        n2 = colors.count(2)
+        n3 = colors.count(3)
+        if n1>1 or n2>1 or n3>1:
+            return False
+        else:
+            return True
+
+    def apply_action(self, state, action):
+        r, g, b = self.locations_from_state(state)
+        color, block = self.inverse_action(action)
+        if color==0:
+            r = block
+        elif color==1:
+            g = block
+        elif color==2:
+            b = block
+        else:
+            print("WHATT???")
+        new_state = self.find_state(r, g, b)
+        return new_state
+
+    def end_state(self, state):
+        # Check's if state has no more valid moves
+        red, green, blue = self.locations_from_state(state)
+        if red != 0 and green != 0 and blue != 0:
+            return True
+        else:
+            return False
 
     def run(self):
         rospy.spin()
