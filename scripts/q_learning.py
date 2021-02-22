@@ -16,6 +16,14 @@ class Q_Learning(object):
         # initialize this node
         rospy.init_node('turtlebot3_q_learning')
 
+        self.robot_dbs = ["red", "green", "blue"]
+        # db model names
+        self.db_model_names = {
+            "red": "robot_dumbbell_red",
+            "green": "robot_dumbbell_green",
+            "blue": "robot_dumbbell_blue"
+        }
+
         # Create a publisher to the qmatrix 
         print("publisher for qmatrix...")
         self.q_matrix_pub = rospy.Publisher("/q_learning/QMatix", QMatrix, queue_size=10)
@@ -34,28 +42,20 @@ class Q_Learning(object):
         return reward
 
     def run(self):
-
-        self.robot_action_pub.publish(RobotMoveDBToBlock())
-
-        robot_action_data = RobotMoveDBToBlock()
-        robot_action_data.robot_db = "red"
-        robot_action_data.block_id = 1
-        print("about to publish action")
-        self.robot_action_pub.publish(robot_action_data)
-        print("just published action")
-        
-        robot_action_data.robot_db = "green"
-        robot_action_data.block_id = 2
-        print("about to publish action")
-        self.robot_action_pub.publish(robot_action_data)
-        print("just published action")
-        
-        robot_action_data.robot_db = "blue"
-        robot_action_data.block_id = 3
-        print("about to publish action")
-        self.robot_action_pub.publish(robot_action_data)
-        print("just published action")
-        
+        ctrl_c = False
+        rate = rospy.Rate(1)
+        while not ctrl_c:
+            connections = self.robot_action_pub.get_num_connections()
+            if connections > 0:
+                for k in range(1,10):
+                    robot_action_data = RobotMoveDBToBlock()
+                    robot_action_data.robot_db = self.robot_dbs[k % 3]
+                    robot_action_data.block_id = 1 + k % 3
+                    print("about to publish action")
+                    self.robot_action_pub.publish(robot_action_data)
+                    print("just published action")
+                else:
+                    rate.sleep()
         rospy.spin()
 
 
