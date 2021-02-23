@@ -21,10 +21,7 @@ class QLearn(object):
         self.move_pub = rospy.Publisher("q_learning/robot_action", RobotMoveDBToBlock, queue_size=10)
         #Creating the Q Matrix structure
         self.q = np.zeros((64,9), dtype=int)
-        matrix = QMatrix()
-        matrix.header = Header(stamp=rospy.Time.now())
-        matrix.q_matrix = self.q
-        self.matrix_pub.publish(matrix)
+        self.publish_qmatrix()
         # initialize these values to help later with determining convergence
         self.count=0
         self.reward=0
@@ -32,6 +29,12 @@ class QLearn(object):
         # creating the action matrix:
         self.actions = np.zeros((64,64), dtype=int)
         self.initialize_action_matrix()
+
+    def publish_qmatrix(self):
+        matrix = QMatrix()
+        matrix.header = Header(stamp=rospy.Time.now())
+        matrix.q_matrix = self.q
+        self.matrix_pub.publish(matrix)
 
     def initialize_action_matrix(self):
         for si in range(0, 64):
@@ -101,10 +104,7 @@ class QLearn(object):
             if self.q[s][a] != update:
                 #print('updating')
                 self.q[s][a] = update
-                matrix = QMatrix()
-                matrix.header = Header(stamp=rospy.Time.now())
-                matrix.q_matrix = self.q
-                self.matrix_pub.publish(matrix)
+                self.publish_qmatrix()
                 self.count = 0
                 print(self.q)
                 rospy.sleep(1.0)
@@ -139,17 +139,6 @@ class QLearn(object):
         red = state - 16*blue - 4*green
         return red, green, blue
 
-    def test_state(self):
-        """ Helper function to test state functions"""
-        for b in range(0, 4):
-            for g in range(0, 4):
-                for r in range(0, 4):
-                    print("red:", r, "green:", g, "blue:", b, end='\t')
-                    num = self.find_state(r,g,b)
-                    print("State num:", num)
-                    red, green, blue = self.locations_from_state(num)
-                    print("red:", red, "green:", green, "blue:", blue, "\n")
-
     def find_action(self, color, block):
         """ Assumes red=0, green=1, blue=2, block = its number """
         action = color*3+(block-1)
@@ -171,16 +160,6 @@ class QLearn(object):
             return "blue"
         else:
             return "UNKNOWN COLOR??"
-
-    def test_action(self):
-        """ Helper to test the action functions """
-        for color in range(0, 3):
-            for block in range(1, 4):
-                print("Moving the", self.dumbbell_color(color), "to block", block)
-                action = self.find_action(color, block)
-                print('Action number', action)
-                c, b = self.inverse_action(action)
-                print('Inverting: moving', self.dumbbell_color(c), "to", b, '\n')
 
     def valid_state(self, r, g, b):
         """ Given dumbbell locations, is this state allowed? """
