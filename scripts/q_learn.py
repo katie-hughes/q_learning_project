@@ -20,13 +20,7 @@ class QLearn(object):
         self.matrix_pub = rospy.Publisher("q_learning/q_matrix", QMatrix, queue_size=10)
         self.move_pub = rospy.Publisher("q_learning/robot_action", RobotMoveDBToBlock, queue_size=10)
         #Creating the Q Matrix structure
-        self.q = []
-        #There are 9 possible actions (all initialized to 0):
-        a = [0]*9
-        #There are 64 possible states
-        for x in range(0, 64):
-            self.q.append(a)
-        self.q = np.array(self.q)
+        self.q = np.zeros((64,9), dtype=int)
         matrix = QMatrix()
         matrix.header = Header(stamp=rospy.Time.now())
         matrix.q_matrix = self.q
@@ -37,6 +31,9 @@ class QLearn(object):
         print("Q Matrix Initialized")
         # creating the action matrix:
         self.actions = np.zeros((64,64), dtype=int)
+        self.initialize_action_matrix()
+
+    def initialize_action_matrix(self):
         for si in range(0, 64):
             for sf in range(0, 64):
                 # si is the initial state, sf is the final state
@@ -72,11 +69,9 @@ class QLearn(object):
                 required_action = self.find_action(moved_dumbbell, destination)
                 self.actions[si][sf] = required_action
         print("Action Matrix Initialized")
-        #self.test_state()
-        #self.test_action()
-        #print(self.actions)
 
     def fill_qmatrix(self):
+        """ This contains the logic of the q-learning algorithm"""
         threshold = 50
         alpha = 1
         gamma = 0.5
@@ -91,6 +86,7 @@ class QLearn(object):
             #print('selected action:', a)
             color, block = self.inverse_action(a)
             #print("Move", self.dumbbell_color(color), "to", block)
+            rospy.sleep(1.0)
             move = RobotMoveDBToBlock()
             move.robot_db = self.dumbbell_color(color)
             move.block_id = block
@@ -100,10 +96,10 @@ class QLearn(object):
             new_state = self.apply_action(s, a)
             #once I am in new_state, what is the max there?
             mx = np.amax(self.q[new_state])
-            print("REWARD:", self.reward)
+            print("Reward seen in algorithm:", self.reward)
             update = self.q[s][a] + alpha*(self.reward + gamma*mx - self.q[s][a])
             if self.q[s][a] != update:
-                print('updating')
+                #print('updating')
                 self.q[s][a] = update
                 matrix = QMatrix()
                 matrix.header = Header(stamp=rospy.Time.now())
@@ -111,8 +107,9 @@ class QLearn(object):
                 self.matrix_pub.publish(matrix)
                 self.count = 0
                 print(self.q)
+                rospy.sleep(1.0)
             else:
-                print('no update')
+                #print('no update')
                 self.count += 1
             # need to check if the new state is at the end
             if self.end_state(new_state):
@@ -124,7 +121,7 @@ class QLearn(object):
 
     def action_reward(self, data):
         """ Callback to receive the reward from robot movement """
-        print("action reward:", data.reward)
+        print("Reward from callback:", data.reward)
         self.reward = data.reward
 
     def find_state(self, red, green, blue):
