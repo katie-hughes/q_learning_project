@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 
+# Node Robot
+# Robot.puckup_db() - orient toward the dumbbell in front of the robot, within .5 meters of robot, move forward, and raise overhead
+# Robot.putdown_db() - put down the dumbbell where robot is, back away slightly
+#
+# to operate, need: roscore, roslaunch q_learning_project turtlebot3_intro_robo_manipulation.launch
+#                   roslaunch turtlebot3_manipulation_moveit_config move_group.launch
+#                   rosrun q_learning_project movearm.py
+
+
 import rospy
 # import the moveit_commander, which allows us to control the arms
 import moveit_commander
@@ -93,7 +102,8 @@ class Robot(object):
         mindir = np.average(vals)
         if np.isnan(mindir):
             mindir = 4
-        print("mindir = %s " % mindir)
+            print("Error in mindir calculation")
+            
         if (np.abs(mindir) <= 2.5):
             self.turning = False
             self.twist.angular.z = 0
@@ -127,7 +137,7 @@ class Robot(object):
             self.approach_dumbbell(data)
         self.twist_pub.publish(self.twist)
         
-    def run(self):
+    def pickup_db(self):
         rate = rospy.Rate(1)
         rate.sleep()
         self.moving = False # boolean for moving toward db
@@ -137,31 +147,38 @@ class Robot(object):
         self.lift_dumbbell()
         print("open gripper...")
         self.open_gripper()
-        
         print("setting orientation:")
         self.turning = True
         while (self.turning == True):
             rospy.sleep(0.1) # wait for orienting toward db
-
-        print("resetting position...")
-        self.lift_dumbbell()
         print("open gripper...")
         self.open_gripper()
         print("reach_dumbbell..")
         self.reach_dumbbell()
-
         print("moving toward db...")
         self.moving = True
         while (self.moving == True):
             rospy.sleep(0.1) # Wait for movement to stop
-        
         print("close gripper")
         self.close_gripper()
         rate.sleep()
-        
         print("lift dumbbell")
         self.lift_dumbbell()
         rate.sleep()
+
+    def putdown_db(self):
+        self.twist.linear.x = 0
+        self.twist_pub.publish(Twist())  # stop
+        print("putting db down..")
+        self.set_dumbbell()
+        self.open_gripper()
+        
+    def run(self):
+        rate = rospy.Rate(1)
+        rate.sleep()
+
+        print("Pickup_db")
+        self.pickup_db()
 
         self.twist.linear.x = .25  # move foward
         self.twist_pub.publish(self.twist)
@@ -170,8 +187,7 @@ class Robot(object):
         self.twist_pub.publish(Twist())  # stop
         
         print("putting it back down..")
-        self.set_dumbbell()
-        self.open_gripper()
+        self.putdown_db()
         
         rospy.spin()
 
@@ -179,3 +195,4 @@ if __name__=="__main__":
 
     node=Robot()
     node.run()
+pn
